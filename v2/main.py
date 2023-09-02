@@ -1,33 +1,12 @@
 import io
 import os.path
 import zlib
-from enum import Enum
 from io import BytesIO
 from typing import List
 import struct
 
-
-class DLC(Enum):
-    THE_ANARCHIST = 2861514240  # 0xaa8f3e00
-    S1_SUNKEN_TREASURES = 3091269120  # 0xb8410600
-    S1_BOTANICA = 3108046336  # 0xb9410600
-    S1_THE_PASSAGE = 3124823552  # 0xba410600
-    S2_SEAT_OF_POWER = 3410036224  # 0xcb410600
-    S2_BRIGHT_HARVEST = 3594585600  # 0xd6410600
-    S2_LAND_OF_LIONS = 3611362816  # 0xd7410600
-    S3_DOCKLANDS = 3812689408  # 0xe3410600
-    S3_TOURIST_SEASON = 3829466624  # 0xe4410600
-    S3_HIGH_LIFE = 3846243840  # 0xe5410600
-    S4_SEEDS_OF_CHANGE = 2170617856  # 0x81610000
-    S4_EMPIRE_OF_THE_SKIES = 2187395072  # 0x82610000
-    S4_NEW_WORLD_RISING = 2204172288  # 0x83610000
-
-
-# Path to the savefile, relative to this script file
-SAVE_GAME_PATH = "Autosave.a7s"
-
-# Insert the DLCs to add to the save game
-DLCS_TO_ADD = [DLC.S3_HIGH_LIFE, DLC.S4_NEW_WORLD_RISING]
+from v2 import constants
+from v2.constants import DLC
 
 
 def get_dlc_name_by_id(id: int):
@@ -64,95 +43,70 @@ class AttributeNode(object):
     def __repr__(self):
         return f"<{self.name}/>"
 
+# --- GENERAL ---
 
-def open_save_file(save_file_path):
-    f = open(save_file_path, "br")
-    if not is_file_valid(f):
-        return None
-    print("Resource File V2.2 ✔")
-    return f
+def read_number(f, byte_length, big_endian: bool = False):
+    return int.from_bytes(f.read(byte_length), "big" if big_endian else "little")
 
+def read_short(f, big_endian: bool = False):
+    return read_number(f, 2, big_endian)
 
-def is_file_valid(f):
-    """ Check for proper resource file version. """
-    return f.read(len("Resource File V2.2".encode("UTF-8"))).decode("UTF-8") == "Resource File V2.2"
+def read_int(f, big_endian: bool = False):
+    return read_number(f, 4, big_endian)
 
+def read_long(f, big_endian: bool = False):
+    return read_number(f, 8, big_endian)
 
-def get_gamesetup_a7s_bytes(f):
-    # Skip a magic number of bytes
-    f.seek(766 + len("Resource File V2.2"))
+def read_bytes(f, offset: int, size: int):
+    f.seek(offset)
+    return f.read(size)
 
-    print(f"File directory start block offset:      {hex(f.tell())}")
-    directory_metadata_offset = read_int(f, 8)
-    f.seek(directory_metadata_offset)
+# --- EXTRACT ---
 
-    return find_gamesetup_block(f, f.tell())
-
-
-def find_gamesetup_block(f, block_offset):
-    f.seek(block_offset)
-
-    print(f"meta data position:      {hex(f.tell())}")
-    flags = read_int(f, 4)
-    file_count = read_int(f, 4)
-    directory_size = read_int(f, 8)
-    decompressed_size = read_int(f, 8)
-    print(f"reading next block at:      {hex(f.tell())}")
-    next_block_offset = read_int(f, 8)
-    print(f"Flags:      {hex(flags)}")
-    print(f"file_count:      {file_count}")
-    print(f"next_block offset:      {hex(next_block_offset)}")
-
-    f.seek(block_offset - directory_size)
-    directory_bytes = f.read(directory_size)
-
-    # Find gamesetup.a7s in the directory and extract its bytes
-    gamesetup_offset, gamesetup_size = search_directory_block_for_gamesetup_a7s(directory_bytes, file_count)
-
-    if gamesetup_offset is None:
-        return find_gamesetup_block(f, next_block_offset)
-    # Extract the binary contents of gamesetup.a7s
-    f.seek(gamesetup_offset)
-    return f.read(gamesetup_size)
-
-
-def search_directory_block_for_gamesetup_a7s(directory_bytes, file_count):
-    directory_bytes_io = BytesIO(directory_bytes)
+def gamesetup_search_files(bytes, file_count):
+    buffer = BytesIO(bytes)
     for _ in range(0, file_count):
-        file_name = directory_bytes_io.read(520).decode("UTF-16").replace("\0", "")
-        offset = read_int(directory_bytes_io, 8)
-        compressed = read_int(directory_bytes_io, 8)
-        file_size = read_int(directory_bytes_io, 8)
-        timestamp = read_int(directory_bytes_io, 8)
-        unknown = read_int(directory_bytes_io, 8)
-        print(f"File:       {file_name} ✔")
-        if file_name == "gamesetup.a7s":
-            print(f"File:       {file_name} ✔")
-            print(f"At offset:  {offset} ({offset:x})")
-            print(f"Compressed: {compressed}")
-            print(f"File size:  {file_size}")
-            print(f"File until:  {offset + file_size:x}")
+        file_name = buffer.read(520).decode("UTF-16").replace("\0", "")
+        offset, _, file_size, _, _ = read_long(buffer), read_long(buffer), read_long(buffer), read_long(buffer), read_long(buffer)
+        print(f"File (name: {file_name}, offset: {offset}-{offset + file_size})")
+        if file_name == constants.GAME_SETUP_FILE_NAME:
+            print(f"Found '{constants.GAME_SETUP_FILE_NAME}' ✔")
             return offset, file_size
+        
     return None, None
 
+def gamesetup_search_block(f, offset):
+    f.seek(offset)
 
-def read_int(f, number_bytes):
-    return int.from_bytes(f.read(number_bytes), "little")
+    _, file_count, size, _, next_offset = read_int(f), read_int(f), read_long(f), read_long(f), read_long(f)
+    print(f"Block (offset: {offset}, file count: {file_count}, directory offset: {offset - size}-{offset})")
 
+    bytes = read_bytes(f, offset - size, size)
+    gamesetup_offset, gamesetup_size = gamesetup_search_files(bytes, file_count)
 
-def read_int_big(f, number_bytes):
-    return int.from_bytes(f.read(number_bytes), "big")
+    if (next_offset == 0):
+        raise ValueError(f"Could not find '{constants.GAME_SETUP_FILE_NAME}'")
+    if gamesetup_offset is None:
+        return gamesetup_search_block(f, next_offset)
+    
+    return read_bytes(f, gamesetup_offset, gamesetup_size)
 
+FILE_TYPE_NAME = 'Resource File V2.2'
+FILE_TYPE_NAME_LENGTH = 18
+FILE_HEADER_LENGTH = 766
 
-def export_gamesetup_a7s(save_file_path):
-    f = open_save_file(save_file_path)
-    gamesetup_a7s_bytes = get_gamesetup_a7s_bytes(f)
-    f.close()
-    return gamesetup_a7s_bytes
+def extract_gamesetup(file_path):
+    with open(file_path, 'rb') as f:
+        if f.read(FILE_TYPE_NAME_LENGTH) != FILE_TYPE_NAME.encode("UTF-8"):
+            raise ValueError('Incompatible Resource File version (not V2.2)')
+        print(f"{FILE_TYPE_NAME} ✔")
 
+        f.seek(FILE_TYPE_NAME_LENGTH + FILE_HEADER_LENGTH)
+        gamesetup_bytes = gamesetup_search_block(f, read_long(f))
 
-def decompress_gamesetup_a7s(gamesetup_a7s_compressed_bytes):
-    return zlib.decompress(gamesetup_a7s_compressed_bytes)
+    return zlib.decompress(gamesetup_bytes)
+
+# --- Unknown ---
 
 
 def compress_gamesetup_a7s(gamesetup_a7s_decompressed_bytes):
@@ -176,17 +130,17 @@ def parse_decompressed_gamesetup_a7s(gamesetup_a7s_decompressed_bytes: bytearray
     handle.seek(initial_tags_offset_address)
     print(f"Reading tags_offset_address (4byte) at {handle.tell():x}")
     # read tags/attribute offsets
-    initial_tags_address = read_int(handle, 4)
+    initial_tags_address = read_int(handle)
     print(f"Reading attributes_offset_address (4byte) at {handle.tell():x}")
-    initial_attributes_address = read_int(handle, 4)
+    initial_attributes_address = read_int(handle)
     print(hex(initial_tags_address))
     print(hex(initial_attributes_address))
 
     # read xml tags
     handle.seek(initial_tags_address)
-    tags_count = read_int(handle, 4)
+    tags_count = read_int(handle)
     print(f"XMl tags count: {tags_count}")
-    tag_ids = [read_int(handle, 2) for _ in range(0, tags_count)]
+    tag_ids = [read_short(handle) for _ in range(0, tags_count)]
     print(tag_ids)
     tag_names = [read_chars_until_space(handle) for _ in range(0, tags_count)]
     print(tag_names)
@@ -194,9 +148,9 @@ def parse_decompressed_gamesetup_a7s(gamesetup_a7s_decompressed_bytes: bytearray
 
     # read xml attributes
     handle.seek(initial_attributes_address)
-    attribute_count = read_int(handle, 4)
+    attribute_count = read_int(handle)
     print(f"XMl attributes count: {attribute_count}")
-    attribute_ids = [read_int(handle, 2) for _ in range(0, attribute_count)]
+    attribute_ids = [read_short(handle) for _ in range(0, attribute_count)]
     print(attribute_ids)
     attribute_names = [read_chars_until_space(handle) for _ in range(0, attribute_count)]
     print(attribute_names)
@@ -220,8 +174,8 @@ def parse_decompressed_gamesetup_a7s(gamesetup_a7s_decompressed_bytes: bytearray
 
     while current_depth >= 0:
         start_read_at_offset = handle.tell()
-        content_size = read_int(handle, 4)
-        element_id = read_int(handle, 4)
+        content_size = read_int(handle)
+        element_id = read_int(handle)
         print(f"\nsize {content_size}, element_id {element_id} at {hex(handle.tell())}")
 
         if get_node_type(element_id) == "tag":
@@ -240,7 +194,7 @@ def parse_decompressed_gamesetup_a7s(gamesetup_a7s_decompressed_bytes: bytearray
 
         elif get_node_type(element_id) == "attr":
             content_block_size = 8
-            content = read_int_big(handle, content_size)
+            content = read_number(handle, content_size, "big")
             current_attribute = AttributeNode(content_size, attributes[element_id], element_id,
                                               tag_node, content)
 
@@ -264,7 +218,7 @@ def parse_decompressed_gamesetup_a7s(gamesetup_a7s_decompressed_bytes: bytearray
                 f"Found attr: <{attributes[element_id]}>{content_in_hex}</{attributes[element_id]}> at {hex(handle.tell())} (read {content_size} bytes)")
             rest_of_bytes_to_read = content_block_size - content_size % content_block_size
             if rest_of_bytes_to_read % content_block_size > 0:
-                read_int_big(handle, rest_of_bytes_to_read)
+                read_number(handle, rest_of_bytes_to_read, "big")
                 print(f"Reading the rest of the block ({rest_of_bytes_to_read} bytes)")
 
         elif get_node_type(element_id) == "terminator":
@@ -286,7 +240,7 @@ def parse_decompressed_gamesetup_a7s(gamesetup_a7s_decompressed_bytes: bytearray
     print(dlc_count_element_id, hex(dlc_count_offset), dlc_count_content, hex(dlc_count_content),
           dlc_count_content_size)
 
-    for dlc_to_add in DLCS_TO_ADD:
+    for dlc_to_add in constants.DLCS_TO_ADD:
         # add dlc: calculate insert position
         new_dlc_insert_position = last_dlc_found_offset + 4 + 4 + 8
         # add dlc: insert dlc block
@@ -366,30 +320,24 @@ def get_node_type(number):
         return "terminator"
 
 def main(save_game_path):
-    save_game_file_name = save_game_path
-    # Step 1: Export gamesetup.a7s from save game
-    gamesetup_a7s_compressed_bytes = export_gamesetup_a7s(save_game_file_name)
+    # Step 1+2: Export gamesetup.a7s from save game
+    gamesetup_bytes = extract_gamesetup(save_game_path)
 
-    # with open(f"{save_game_file_name}_gamesetup_extracted", "wb+") as fe:
-    #     fe.write(gamesetup_a7s_compressed_bytes)
-
-    # Step 2: Decompress exported gamesetup.a7s
-    gamesetup_a7s_decompressed_bytes = decompress_gamesetup_a7s(gamesetup_a7s_compressed_bytes)
-
-    # with open(f"{save_game_file_name}_gamesetup_decompressed", "wb+") as fe:
-    #     fe.write(gamesetup_a7s_decompressed_bytes)
+    with open(f"{save_game_path}_gamesetup_extracted", "wb+") as fe:
+        print(f"Saved '{constants.GAME_SETUP_FILE_NAME}' (binary) to file '{save_game_path}_bytes'")
+        fe.write(gamesetup_bytes)
 
     # Step 3: Parse and insert desired DLCs into decompressed gamesetup bytes
     # Step 3a: generate XML from bytes (optional)
     root_tag_node, decompressed_gamesetup_a7s_containing_new_dlcs = parse_decompressed_gamesetup_a7s(
-        bytearray(gamesetup_a7s_decompressed_bytes))
+        bytearray(gamesetup_bytes))
     print(print_node_tree(root_tag_node))
 
-    # with open(f"{save_game_file_name}_gamesetup_decompress_added_dlcs", "wb+") as fe:
-    #     fe.write(decompressed_gamesetup_a7s_containing_new_dlcs)
-    #
-    # with open(f"{save_game_file_name}_gamesetup_a7s.xml", "wb+") as fe:
-    #     fe.write(print_node_tree(root_tag_node).encode("utf-8"))
+    with open(f"{save_game_path}_gamesetup_decompress_added_dlcs", "wb+") as fe:
+        fe.write(decompressed_gamesetup_a7s_containing_new_dlcs)
+    
+    with open(f"{save_game_path}_gamesetup_a7s.xml", "wb+") as fe:
+        fe.write(print_node_tree(root_tag_node).encode("utf-8"))
 
     # Step 4: Compress gamesetup with added dlcs
     compressed_gamesetup_containing_new_dlcs = compress_gamesetup_a7s(decompressed_gamesetup_a7s_containing_new_dlcs)
@@ -403,7 +351,7 @@ def main(save_game_path):
 
 
 def run_with_script_parameters():
-    main(SAVE_GAME_PATH)
+    main(constants.SAVE_GAME_PATH)
 
 
 if __name__ == "__main__":
