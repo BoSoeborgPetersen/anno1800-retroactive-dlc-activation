@@ -14,7 +14,6 @@ class CheckboxesGuiModel:
         self.column = column
         self.label = label
 
-
 def get_checkboxes_gui_models() -> List[CheckboxesGuiModel]:
     """Create a gui model for the dlc checkboxes."""
     return [
@@ -33,43 +32,43 @@ def get_checkboxes_gui_models() -> List[CheckboxesGuiModel]:
         CheckboxesGuiModel(DLC.S4_NEW_WORLD_RISING, 4, 2, DLC.S4_NEW_WORLD_RISING.name),
     ]
 
-
-priorly_active_dlcs: List[DLC] = []
-
+# priorly_active_dlcs: List[DLC] = []
 
 class Gui:
-
     def apply_changes(self):
         dlcs_to_activate = [dlc for dlc in self.selected_dlcs if dlc not in self.priorly_active_dlcs]
-        if dlcs_to_activate:
+        if not self.save_game_file_path:
+            self.status_message.set(f"Select an Anno 1800 save game using 'Open Save File'.")
+        else:
+        # elif dlcs_to_activate:
+            compressed_size_before = len(self.game_setup_writer.get_compressed_gamesetup_a7s())
             self.game_setup_writer.insert_dlcs(dlcs_to_activate)
+            compressed_size_after = len(self.game_setup_writer.get_compressed_gamesetup_a7s())
+            added_compressed_bytes = compressed_size_after - compressed_size_before
 
-            self.save_game_writer = lib.SaveGameWriter(self.save_game_reader, self.save_game_reader.initial_bytes)
-            self.save_game_writer.add_gamesetup_a7s(self.game_setup_writer.get_compressed_gamesetup_a7s())
+            self.save_game_writer = lib.SaveGameWriter(self.save_game_reader, self.save_game_reader.bytes)
+            # TODO: added_bytes should be replaced with the diff in size of compressed gamesetup before and after changes.
+            self.save_game_writer.add_gamesetup_a7s(self.game_setup_writer.get_compressed_gamesetup_a7s(), added_compressed_bytes)
 
             old_filename = os.path.basename(self.save_game_file_path)
             new_filename = old_filename.split(".")[0] + "_dlc_activated.a7s"
             save_game_dir = os.path.dirname(self.save_game_file_path)
 
-            # with open(os.path.join(save_game_dir, "gui_gamesetup_original.a7s"), "w+b") as f:
-            #     f.write(self.save_game_reader.get_gamesetup_bytes())
-            # with open(os.path.join(save_game_dir, "gui_gamesetup_uncompressed.a7s"), "w+b") as f:
-            #     f.write(self.game_setup_writer.get_uncompressed_gamesetup_a7s())
+            with open(os.path.join(save_game_dir, old_filename.split(".")[0] + "_gamesetup_new.a7s"), "w+b") as f:
+                f.write(self.game_setup_writer.get_uncompressed_gamesetup_a7s())
             # with open(os.path.join(save_game_dir, "gui_gamesetup.a7s"), "w+b") as f:
             #     f.write(self.game_setup_writer.get_compressed_gamesetup_a7s())
             self.save_game_writer.write_save_game(os.path.join(save_game_dir, new_filename))
             self.status_message.set(f"New file '{new_filename}' created.")
-        elif not self.save_game_file_path:
-            self.status_message.set(f"Select an Anno 1800 save game using 'Open Save File'.")
-        else:
-            self.status_message.set(f"Pick at least one DLC to activate.")
+        # else:
+            # self.status_message.set(f"Pick at least one DLC to activate.")
 
     def update_selected_dlcs(self, dlc: DLC):
         if dlc in self.selected_dlcs:
             self.selected_dlcs.remove(dlc)
         else:
             self.selected_dlcs.append(dlc)
-        print(self.selected_dlcs)
+        print(f"DLCs to add: {self.selected_dlcs}") # TODO: Also print hex version, and check log level.
 
     def open_file(self):
         folder1 = os.path.join(os.getenv("USERPROFILE"), "Documents", "Anno 1800", "accounts")
@@ -96,16 +95,21 @@ class Gui:
     def refresh_activated_dlcs(self):
         self.selected_dlcs = []
         if self.save_game_file_path:
-            f = open(self.save_game_file_path, "rb")
+            self.save_game_reader = lib.SaveGameReader(self.save_game_file_path)
+            gamesetup_bytes = self.save_game_reader.get_gamesetup_bytes()
+            self.game_setup_reader = lib.GameSetupReader(gamesetup_bytes)
+            self.priorly_active_dlcs = self.game_setup_reader.dlcs
+            self.game_setup_writer = lib.GameSetupWriter(self.game_setup_reader, self.game_setup_reader.bytes)
 
-            self.save_game_reader = lib.SaveGameReader(bytearray(f.read()))
-            print(f"Reading {self.save_game_file_path} ({self.save_game_reader.size} bytes) ")
+            # ---
+            save_game_dir = os.path.dirname(self.save_game_file_path)
+            old_filename = os.path.basename(self.save_game_file_path)
+            # ---
 
-            self.game_setup_reader = lib.GameSetupReader(self.save_game_reader.get_gamesetup_bytes())
-
-            self.priorly_active_dlcs = self.game_setup_reader.get_activated_dlcs()
-
-            self.game_setup_writer = lib.GameSetupWriter(self.game_setup_reader, self.game_setup_reader.initial_bytes)
+            with open(os.path.join(save_game_dir, old_filename.split(".")[0] + "_gamesetup.a7s"), "w+b") as f:
+                f.write(gamesetup_bytes)
+            with open(os.path.join(save_game_dir, old_filename.split(".")[0] + ".xml"), "w+b") as f:
+                f.write(self.game_setup_reader.to_xml().encode("utf-8"))
 
             for (dlc, checkbox) in self.checkboxes:
                 checkbox.config(state='active')
@@ -140,12 +144,12 @@ class Gui:
         current_row = 0
         version_disclaimer_label = tk.Label(root, text="Alpha version !")
         version_disclaimer_label.grid(row=current_row, column=0, columnspan=4)
-        current_row+=1
 
+        current_row += 1
         version_disclaimer_label = tk.Label(root, text="May contain bugs and might not work for your save game")
         version_disclaimer_label.grid(row=current_row, column=0, columnspan=4)
-        current_row+=1
 
+        current_row += 1
         open_file_button = tk.Button(root, text="Open Save File", command=self.open_file)
         open_file_button.grid(row=current_row, column=0, padx=16, pady=16, ipadx=16, columnspan=4)
 
@@ -174,7 +178,6 @@ class Gui:
         status_message_label.grid(row=current_row, column=0, columnspan=4)
 
         root.mainloop()
-
 
 if __name__ == '__main__':
     Gui()
