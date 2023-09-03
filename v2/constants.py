@@ -20,10 +20,8 @@ class DLC(Enum):
 # Path to the savefile, relative to this script file
 # SAVE_GAME_PATH = "c:/git/anno1800-retroactive-dlc-activation/v2/Autosave.a7s"
 # SAVE_GAME_PATH = "c:/git/anno1800-retroactive-dlc-activation/v2/Autosave 2915.a7s"
-SAVE_GAME_PATH = "c:/git/anno1800-retroactive-dlc-activation/v2/Clean.a7s"
-SAVE_GAME_PATH = "c:/git/anno1800-retroactive-dlc-activation/v2/Clean.a7s"
-GAME_SETUP_FILE_NAME = 'gamesetup.a7s'
-# SAVE_GAME_PATH = "c:/git/anno1800-retroactive-dlc-activation/v2/Clean1.a7s"
+# SAVE_GAME_PATH = "c:/git/anno1800-retroactive-dlc-activation/v2/Clean.a7s"
+SAVE_GAME_PATH = "c:/git/anno1800-retroactive-dlc-activation/v2/Clean1.a7s"
 # SAVE_GAME_PATH = "c:/git/anno1800-retroactive-dlc-activation/v2/Werner Schnitzel2.a7s"
 # SAVE_GAME_PATH = "c:/git/anno1800-retroactive-dlc-activation/v2/Clean1_dlc_activated.a7s"
 
