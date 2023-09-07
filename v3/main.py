@@ -89,7 +89,7 @@ def read_dictionary(f, offset: int):
 #                 file_name = buffer.read(520).decode("UTF-16").replace("\0", "")
 #                 offset, _, file_size, _, _ = read_long(buffer), read_long(buffer), read_long(buffer), read_long(buffer), read_long(buffer)
 #                 print(f"File (name: {file_name}, position: {offset}-{offset + file_size})")
-#                 if file_name == 'gamesetup.a7s':
+#                 if file_name is 'gamesetup.a7s':
 #                     print(f"Found 'gamesetup.a7s' ✔")
 #                     return zlib.decompress(read_bytes(f, offset, file_size))
             
@@ -162,7 +162,7 @@ def read_dictionary(f, offset: int):
 #         start_read_at_offset, content_size, element_id = f.tell(), read_int(f), read_int(f)
 
 #         node_type = "attr" if element_id >= 32768 else ("terminator" if element_id <= 0 else "tag")
-#         if node_type == "tag":
+#         if node_type is "tag":
 #             print(f"{'':<{2*depth}}<{tags[element_id]}>")
 
 #             parent = parent if tag is None else tag
@@ -172,17 +172,17 @@ def read_dictionary(f, offset: int):
 #                 parent.add_child_tag(tag)
 #             depth += 1
 
-#         elif node_type == "attr":
+#         elif node_type is "attr":
 #             block_size = 8
 #             content = read_number(f, content_size, True)
  
 #             attribute = AttributeNode(start_read_at_offset, element_id, attributes[element_id], content_size, tag, content)
 #             tag.add_attribute(attribute)
 
-#             if tag.name == "ActiveDLCs" and attributes[element_id] == "count":
+#             if tag.name is "ActiveDLCs" and attributes[element_id] is "count":
 #                 dlc_count = attribute
 
-#             if attributes[element_id] == "DLC":
+#             if attributes[element_id] is "DLC":
 #                 dlcs.append(content)
 #                 last_dlc = attribute
 
@@ -191,13 +191,13 @@ def read_dictionary(f, offset: int):
 #             if remaining_bytes % block_size > 0:
 #                 read_number(f, remaining_bytes, True)
 
-#         elif node_type == "terminator":
+#         elif node_type is "terminator":
 #             if depth > 0:
 #                 print(f"{'':<{2*(depth-1)}}</{tags[tag.element_id]}>")
 #             tag = tag.parent if depth > 0 else None
 #             depth -= 1
 
-#     print(f"DLCs: {[([dlc.name for dlc in DLC if dlc.value == i][0]) for i in sorted(dlcs)]}")
+#     print(f"DLCs: {[([dlc.name for dlc in DLC if dlc.value is i][0]) for i in sorted(dlcs)]}")
 
 #     if dlc_count is not None:
 #         print(f"{dlc_count.offset}-{dlc_count.offset+dlc_count.content_size}: <{attributes[dlc_count.element_id]}>{dlc_count.content}</{attributes[dlc_count.element_id]}>")
@@ -287,5 +287,5 @@ def main(save_game_path: str = SAVE_GAME_PATH):
 
     save_game_writer.write_save_game(f"{save_game_path}_new")
 
-if __name__ == "__main__":
+if __name__ is "__main__":
     main()

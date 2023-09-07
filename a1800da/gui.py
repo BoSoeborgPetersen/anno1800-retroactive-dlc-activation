@@ -2,10 +2,12 @@ import tkinter as tk
 from tkinter import filedialog
 import os
 from typing import List, Tuple
-
-from a1800da import lib
-from a1800da.lib import DLC
-
+from lib.data.RdaFile import RdaFile
+from lib.enums.DLC import DLC
+from lib.reader.SaveGameReader import SaveGameReader
+from lib.reader.GameSetupReader import GameSetupReader
+from lib.writer.GameSetupWriter import GameSetupWriter
+# from lib.writer.SaveGameWriter import SaveGameWriter
 
 class CheckboxesGuiModel:
     def __init__(self, dlc: DLC, row: int, column: int, label: str):
@@ -36,29 +38,44 @@ def get_checkboxes_gui_models() -> List[CheckboxesGuiModel]:
 
 class Gui:
     def apply_changes(self):
+        print("Not implemented")
         dlcs_to_activate = [dlc for dlc in self.selected_dlcs if dlc not in self.priorly_active_dlcs]
         if not self.save_game_file_path:
             self.status_message.set(f"Select an Anno 1800 save game using 'Open Save File'.")
         else:
         # elif dlcs_to_activate:
-            compressed_size_before = len(self.game_setup_writer.get_compressed_gamesetup_a7s())
-            self.game_setup_writer.insert_dlcs(dlcs_to_activate)
-            compressed_size_after = len(self.game_setup_writer.get_compressed_gamesetup_a7s())
-            added_compressed_bytes = compressed_size_after - compressed_size_before
-
-            self.save_game_writer = lib.SaveGameWriter(self.save_game_reader, self.save_game_reader.bytes)
-            # TODO: added_bytes should be replaced with the diff in size of compressed gamesetup before and after changes.
-            self.save_game_writer.add_gamesetup_a7s(self.game_setup_writer.get_compressed_gamesetup_a7s(), added_compressed_bytes)
 
             old_filename = os.path.basename(self.save_game_file_path)
             new_filename = old_filename.split(".")[0] + "_dlc_activated.a7s"
             save_game_dir = os.path.dirname(self.save_game_file_path)
 
+            self.game_setup_writer = GameSetupWriter(self.game_setup_reader, self.game_setup_reader.bytes)
+            compressed_size_before = len(self.game_setup_writer.get_compressed_gamesetup_a7s())
+            self.game_setup_writer.insert_dlcs(dlcs_to_activate)
+            compressed_size_after = len(self.game_setup_writer.get_compressed_gamesetup_a7s())
+            added_compressed_bytes = compressed_size_after - compressed_size_before
+
+            # self.save_game_writer = SaveGameWriter(self.save_game_reader)
+            # self.save_game_writer.add_gamesetup_a7s(self.game_setup_writer.get_compressed_gamesetup_a7s(), added_compressed_bytes)
+
+            self.save_game_reader.remove_dlc_answers()
+            
+            for file in self.save_game_reader.files:
+                # with open(os.path.join(save_game_dir, old_filename.split(".")[0] + f"_{file.file_header.file_path}"), "w+b") as f:
+                    # f.write(file.file_data)
+                with open(os.path.join(save_game_dir, old_filename.split(".")[0] + f"_{file.file_header.file_path}_new.xml"), "w+b") as f:
+                    if file.file_tree:
+                        f.write(file.file_tree.to_xml().encode("utf-8"))
+
+            # self.save_game_reader.header.save_tree()
+
+            with open(os.path.join(save_game_dir, old_filename.split(".")[0] + "_header_new.a7s"), "w+b") as f:
+                f.write(self.save_game_reader.header.file_data)
+
             with open(os.path.join(save_game_dir, old_filename.split(".")[0] + "_gamesetup_new.a7s"), "w+b") as f:
                 f.write(self.game_setup_writer.get_uncompressed_gamesetup_a7s())
-            # with open(os.path.join(save_game_dir, "gui_gamesetup.a7s"), "w+b") as f:
-            #     f.write(self.game_setup_writer.get_compressed_gamesetup_a7s())
-            self.save_game_writer.write_save_game(os.path.join(save_game_dir, new_filename))
+            # self.save_game_writer.write_save_game(os.path.join(save_game_dir, new_filename))
+            self.save_game_reader.write().to_file(os.path.join(save_game_dir, old_filename.split(".")[0] + "_new.a7s"))
             self.status_message.set(f"New file '{new_filename}' created.")
         # else:
             # self.status_message.set(f"Pick at least one DLC to activate.")
@@ -95,21 +112,21 @@ class Gui:
     def refresh_activated_dlcs(self):
         self.selected_dlcs = []
         if self.save_game_file_path:
-            self.save_game_reader = lib.SaveGameReader(self.save_game_file_path)
-            gamesetup_bytes = self.save_game_reader.get_gamesetup_bytes()
-            self.game_setup_reader = lib.GameSetupReader(gamesetup_bytes)
+            self.save_game_reader = SaveGameReader(self.save_game_file_path)
+            self.game_setup_reader = GameSetupReader(self.save_game_reader.gamesetup)
             self.priorly_active_dlcs = self.game_setup_reader.dlcs
-            self.game_setup_writer = lib.GameSetupWriter(self.game_setup_reader, self.game_setup_reader.bytes)
 
             # ---
             save_game_dir = os.path.dirname(self.save_game_file_path)
             old_filename = os.path.basename(self.save_game_file_path)
             # ---
-
-            with open(os.path.join(save_game_dir, old_filename.split(".")[0] + "_gamesetup.a7s"), "w+b") as f:
-                f.write(gamesetup_bytes)
-            with open(os.path.join(save_game_dir, old_filename.split(".")[0] + ".xml"), "w+b") as f:
-                f.write(self.game_setup_reader.to_xml().encode("utf-8"))
+            
+            for file in self.save_game_reader.files:
+                with open(os.path.join(save_game_dir, old_filename.split(".")[0] + f"_{file.file_header.file_path}"), "w+b") as f:
+                    f.write(file.file_data)
+                with open(os.path.join(save_game_dir, old_filename.split(".")[0] + f"_{file.file_header.file_path}.xml"), "w+b") as f:
+                    if file.file_tree:
+                        f.write(file.file_tree.to_xml().encode("utf-8"))
 
             for (dlc, checkbox) in self.checkboxes:
                 checkbox.config(state='active')
@@ -119,10 +136,10 @@ class Gui:
                     checkbox.config(state='disabled')
 
     def __init__(self):
-        self.save_game_reader: lib.SaveGameReader | None = None
-        self.game_setup_reader: lib.GameSetupReader | None = None
-        self.game_setup_writer: lib.GameSetupWriter | None = None
-        self.save_game_writer: lib.SaveGameWriter | None = None
+        self.save_game_reader: SaveGameReader | None = None
+        self.game_setup_reader: GameSetupReader | None = None
+        self.game_setup_writer: GameSetupWriter | None = None
+        # self.save_game_writer: SaveGameWriter | None = None
         # DLCs selected by the checkboxes
         self.selected_dlcs: List[DLC] = []
         self.save_game_file_path: str | None = None
