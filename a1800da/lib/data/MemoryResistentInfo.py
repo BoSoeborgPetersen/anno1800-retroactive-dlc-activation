@@ -1,31 +1,22 @@
-from lib.data import Constant
-
-from lib.reader.MemoryReader import MemoryReader
-from lib.writer.MemoryWriter import MemoryWriter
+from lib.io.MemoryReader import MemoryReader
+from lib.io.MemoryWriter import MemoryWriter
 from lib.log.Log import print_info
 
 class MemoryResistentInfo:
-    offset: int
-    compressed_size: int
-    uncompressed_size: int
+    compressed_size: int; size: int
     
-    def __init__(self, reader: MemoryReader, offset: int):
-        print_info(f"    Memory Resistent Info (pos: {reader.buffer.tell()}-{reader.buffer.tell()+16})")
-        self.offset = offset-Constant.MEMORY_RESISTENT_INFO_SIZE
-        self.read(reader)
-        self.print()
+    def __init__(self, read: MemoryReader, offset: int):
+        read.seek(offset - self.get_size())
+        self.compressed_size, self.size = read.long(), read.long()
+        self.print(offset)
 
-    def read(self, reader: MemoryReader):
-        self.compressed_size, reader.read_long(self.offset)
-        self.uncompressed_size = reader.read_long(self.offset + 8)
-
-    def size(self) -> int:
-        return 16
-
-    def write(self, writer: MemoryWriter):
-        self.print()
-        writer.write_long(self.offset, self.compressed_size)
-        writer.write_long(self.offset + 8, self.uncompressed_size)
+    def get_size(self) -> int:
+        return 8 + 8
+    
+    def save(self, write: MemoryWriter, offset: int):
+        write.seek(offset - self.get_size())
+        write.long(self.compressed_size), write.long(self.size)
+        self.print(offset)
         
-    def print(self):
-        print_info(f"    /Memory Resistent Info (pos: {self.offset}-{self.offset+16}, compressed_size: {self.compressed_size}, uncompressed_size: {self.uncompressed_size})")
+    def print(self, offset: int):
+        print_info(f'      <memory_resistent_info pos="{offset}-{offset+self.get_size()}" pos_hex="{offset:x}-{(offset+self.get_size()):x}" compressed_size="{self.compressed_size}" uncompressed_size="{self.size}" />')

@@ -17,6 +17,3 @@ def print_debug(content: str):
 def print_trace(content: str):
     if (CURRENT_LOG_LEVEL.value >= LogLevel.TRACE.value):
         print("Trace: " + content)
-
-def print_ptr(name: str, ptr: int, content: int):
-    print_info(f"Pointer '{name}' at '{ptr} (0x{ptr:x})' = '{content} (0x{content:x})'")

@@ -1,33 +1,26 @@
-from lib.reader.MemoryReader import MemoryReader
-from lib.writer.MemoryWriter import MemoryWriter
+from lib.io.MemoryReader import MemoryReader
 from lib.error import ParseError
+from lib.io.MemoryWriter import MemoryWriter
 from lib.log.Log import print_info
 
 class RdaHeader:
-    file_format_name: str
-    unknown: bytes
-    first_block_header_offset: int
+    file_format: str; unknown: bytes; next_offset: int
 
-    def __init__(self, reader: MemoryReader):
-        self.read(reader)
-        self.validate()
-        self.print()
-
-    def read(self, reader: MemoryReader):
-        self.file_format_name = reader.read_string(0, 18)
-        self.unknown = reader.read_bytes(18, 766)
-        self.first_block_header_offset = reader.read_long(18+766)
-
-    def write(self, writer: MemoryWriter) -> int:
-        writer.write_string(0, self.file_format_name)
-        writer.write_bytes(18, self.unknown)
-        writer.write_long(18+766, self.first_block_header_offset)
-        self.print()
-        return 792
-
-    def validate(self):
-        if self.file_format_name != "Resource File V2.2":
+    def __init__(self, read: MemoryReader):
+        self.file_format, self.unknown, self.next_offset = read.string(18), read.bytes(766), read.long()
+        if self.file_format != "Resource File V2.2":
             raise ParseError("Not a Resource File V2.2")
+        self.print()
+
+    def get_unknown(self):
+        return self.unknown.strip(b'\0')
+
+    def get_size(self) -> int:
+        return 18 + 766 + 8
+
+    def save(self, write: MemoryWriter):
+        write.string(self.file_format), write.bytes(self.unknown), write.long(self.next_offset)
+        self.print()
             
     def print(self):
-        print_info(f"  /RDA Header (pos: 0-792, file_format_name: '{self.file_format_name}', unknown: '{self.unknown.strip(b'\0')}', first_block_header_offset: '{self.first_block_header_offset}')")
+        print_info(f'  <header pos="0-792" pos_hex="0-318" file_format="{self.file_format}" unknown="{self.get_unknown()}" next_offset="{self.next_offset}" />')

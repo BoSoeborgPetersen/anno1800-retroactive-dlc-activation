@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-
+from typing import List
 from lib.enums.ThreeNodeTypes import ThreeNodeTypes
 
 @dataclass()
@@ -11,4 +11,4 @@ class TreeNode:
     name: str
     content: bytes
     parent: 'TreeNode'
-    children: ['TreeNode']
+    children: List['TreeNode']

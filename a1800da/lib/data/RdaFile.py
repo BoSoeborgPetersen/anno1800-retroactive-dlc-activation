@@ -1,81 +1,65 @@
 import zlib
-
 from lib.data.FileHeader import FileHeader
-from lib.reader.MemoryReader import MemoryReader
-from lib.writer.MemoryWriter import MemoryWriter
+from lib.io.MemoryReader import MemoryReader
+from lib.io.MemoryWriter import MemoryWriter
 from lib.data.BlockHeader import BlockHeader
 from lib.data.BlockFlags import BlockFlags
 from lib.data.Tree import Tree
 from lib.log.Log import print_info
 
 class RdaFile:
-    offset: int
-    file_header: FileHeader = None
-    compressed_file_data: bytearray
-    file_data: bytearray
-    file_tree: Tree = None
+    file_header: FileHeader; compressed_file_data: bytearray; file_data: bytearray; file_tree: Tree
 
-    def __init__(self, reader: MemoryReader, offset: int, header: BlockHeader):
-        print_info(f"    RDA File")
-
-        self.offset = offset
-        self.read(reader, header)
-
+    def __init__(self, read: MemoryReader, offset: int, header: BlockHeader):
+        self.file_header = None
         self.print()
-
-    def read(self, reader: MemoryReader, header: BlockHeader):
-        self.read_header(reader, header)
-        self.compressed_file_data = reader.read_bytes(self.file_header.data_offset, self.file_header.compressed_size)
-        self.file_data = bytearray(zlib.decompress(self.compressed_file_data))
-        self.read_tree()
-
-    def read_header(self, reader: MemoryReader, header: BlockHeader):
         if header.flags is BlockFlags.COMPRESSED:
-            uncompressed_header_reader = MemoryReader(bytearray(zlib.decompress(reader.read_bytes(self.offset, header.compressed_size))))
-            self.file_header = FileHeader(uncompressed_header_reader, self.offset)
+            read.seek(offset)
+            uncompressed_header_reader = MemoryReader(bytearray(zlib.decompress(read.bytes(header.compressed_size))))
+            self.file_header = FileHeader(uncompressed_header_reader, offset)
         else:
-            self.file_header = FileHeader(reader, self.offset)
-
-    def read_tree(self):
-        # TODO: Temp for debugging
-        if (self.file_header.file_path != "data.a7s"):
-            self.file_tree = Tree(self.file_data)
+            self.file_header = FileHeader(read, offset)
+        read.seek(self.file_header.data_offset)
+        self.compressed_file_data = read.bytes(self.file_header.compressed_size)
+        self.file_data = bytearray(zlib.decompress(self.compressed_file_data))
+        self.file_tree = Tree(self.file_header.get_name(), self.file_data) if self.file_header.get_name() != "data.a7s" else None
+        self.print()
 
     def save_tree(self):
-        # TODO: Temp for debugging
-        if (self.file_header.file_path != "data.a7s"):
+        if (self.file_header.get_name() != "data.a7s"):
             self.file_data = self.file_tree.serialize()
-            print(f"file_data_length: {len(self.file_data) % 8}")
+            # write = MemoryWriter()
             self.compressed_file_data = zlib.compress(self.file_data, level=zlib.Z_BEST_COMPRESSION)
+            # write.bytes(zlib.compress(self.file_data, level=zlib.Z_BEST_COMPRESSION))
 
-            print(f"file_compressed_data_length: {(len(self.compressed_file_data) + 12)}")
-            print(f"file_compressed_data_length: {(len(self.compressed_file_data) + 12) % 8}")
             remainder = (8 - (len(self.compressed_file_data) + 12)) % 8
             self.compressed_file_data += bytes(remainder)
-            print(f"file_compressed_data_length: {(len(self.compressed_file_data) + 12)}")
-            print(f"file_compressed_data_length: {(len(self.compressed_file_data) + 12) % 8}")
+            # write.remainder(len(self.compressed_file_data))
 
             self.compressed_file_data += bytes.fromhex("78da030000000001")
+            # write.bytes(bytes.fromhex("78da030000000001"))
             self.compressed_file_data += int.to_bytes(len(self.file_data), 4, "little")
+            # write.int(len(self.file_data))
+            # self.compressed_file_data = write.to_bytes()
 
-            print(f"file_compressed_data_length: {len(self.compressed_file_data)}")
-            print(f"file_compressed_data_length: {len(self.compressed_file_data) % 8}")
+    def get_size(self) -> int:
+        return len(self.compressed_file_data) + self.file_header.get_size()
 
-    def size(self) -> int:
-        return len(self.compressed_file_data) + self.file_header.size()
-
-    def write(self, writer: MemoryWriter, offset: int):
-        size = 0
+    def save(self, write: MemoryWriter, offset: int):
         self.print()
-        # size += writer.write_bytes(offset + size, zlib.compress(self.file_data, level=zlib.Z_BEST_COMPRESSION))
-        # size += writer.write_bytes(offset + size, bytes.fromhex("78da030000000001"))
-        # size += writer.write_int(offset + size, len(self.file_data))
-        size += writer.write_bytes(offset + size, self.compressed_file_data)
+        write.seek(offset)
+        size = write.bytes(self.compressed_file_data)
         self.file_header.data_offset = offset
-        self.file_header.compressed_size = len(self.compressed_file_data)
-        self.file_header.uncompressed_size = len(self.compressed_file_data)
-        size += self.file_header.write(writer, offset + size)
-        return size
+        # self.file_header.size = len(self.compressed_file_data)
+        self.file_header.compressed_size = self.file_header.size = len(self.compressed_file_data)
+        self.file_header.write(write, offset + size)
+        self.print()
+        return size + self.file_header.get_size()
 
     def print(self):
-        print_info(f"    /RDA File (pos: {self.file_header.data_offset}-{self.file_header.data_offset + self.file_header.compressed_size}, file_header: {self.file_header is not None}, file_data: {len(self.file_data)}, file_tree: {self.file_tree is not None})")
+        if not self.file_header:
+            print_info('    <file>')
+        else:
+            start = self.file_header.data_offset
+            end = self.file_header.data_offset + self.file_header.compressed_size
+            print_info(f'    </file pos="{start}-{end}" pos_hex="{start:x}-{end:x}">')

@@ -4,7 +4,7 @@ from lib.enums.DLC import DLC
 from lib.data.TreeNode import TreeNode
 from lib.log.Log import print_info
 
-class GameSetupReader():
+class GameSetup():
     gamesetup: RdaFile
     bytes: bytearray
     dlcs: List[DLC]

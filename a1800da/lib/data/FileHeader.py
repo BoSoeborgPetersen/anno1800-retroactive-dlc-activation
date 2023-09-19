@@ -1,42 +1,25 @@
-from lib.reader.MemoryReader import MemoryReader
-from lib.writer.MemoryWriter import MemoryWriter
-import lib.data.Constant as Constant
+from lib.io.MemoryReader import MemoryReader
+from lib.io.MemoryWriter import MemoryWriter
 from lib.log.Log import print_info
 
 class FileHeader:
-    # offset: int
-    file_path: str
-    data_offset: int
-    compressed_size: int
-    uncompressed_size: int
-    time_stamp: int
-    unknown: int
+    name: str; data_offset: int; compressed_size: int; size: int; time: int; unknown: int
 
-    def __init__(self, reader: MemoryReader, offset: int):
-        # self.offset = offset
-        self.read(reader, offset)
+    def __init__(self, read: MemoryReader, offset: int):
+        read.seek(offset)
+        self.name, self.data_offset, self.compressed_size, self.size, self.time, self.unknown = read.string(520, True), read.long(), read.long(), read.long(), read.long(), read.long()
         self.print(offset)
 
-    def read(self, reader: MemoryReader, offset: int):
-        self.file_path = reader.read_utf16_string(offset, Constant.FILE_HEADER_SIZE).rstrip("\0")
-        self.data_offset = reader.read_long(Constant.FILE_HEADER_SIZE + offset)
-        self.compressed_size = reader.read_long(Constant.FILE_HEADER_SIZE + offset+8)
-        self.uncompressed_size = reader.read_long(Constant.FILE_HEADER_SIZE + offset+16)
-        self.time_stamp = reader.read_long(Constant.FILE_HEADER_SIZE + offset+24)
-        self.unknown = reader.read_long(Constant.FILE_HEADER_SIZE + offset+32)
+    def get_size(self) -> int:
+        return 520 + 8 + 8 + 8 + 8 + 8
 
-    def size(self) -> int:
-        return Constant.FILE_HEADER_SIZE + 40
+    def get_name(self):
+        return self.name.rstrip("\0")
 
-    def write(self, writer: MemoryWriter, offset: int) -> int:
-        writer.write_utf16_string(offset, Constant.FILE_HEADER_SIZE, self.file_path)
-        writer.write_long(Constant.FILE_HEADER_SIZE + offset, self.data_offset)
-        writer.write_long(Constant.FILE_HEADER_SIZE + offset+8, self.compressed_size)
-        writer.write_long(Constant.FILE_HEADER_SIZE + offset+16, self.uncompressed_size)
-        writer.write_long(Constant.FILE_HEADER_SIZE + offset+24, self.time_stamp)
-        writer.write_long(Constant.FILE_HEADER_SIZE + offset+32, self.unknown)
+    def write(self, write: MemoryWriter, offset: int):
+        write.seek(offset)
+        write.string(self.name, True), write.long(self.data_offset), write.long(self.compressed_size), write.long(self.size), write.long(self.time), write.long(self.unknown)
         self.print(offset)
-        return self.size()
 
     def print(self, offset):
-        print_info(f"      /File Header (pos: {offset}-{offset+560}, file_path: {self.file_path}, data_offset: {self.data_offset}, compressed_size: {self.compressed_size}, uncompressed_size: {self.uncompressed_size}, time_stamp: {self.time_stamp}, unknown: {self.unknown})")
+        print_info(f'      <header pos="{offset}-{offset+self.size}" pos_hex="{offset:x}-{(offset+self.size):x}" file_path="{self.get_name()}", data_offset="{self.data_offset}", compressed_size="{self.compressed_size}", uncompressed_size="{self.size}", time_stamp="{self.time}", unknown="{self.unknown}" />')
