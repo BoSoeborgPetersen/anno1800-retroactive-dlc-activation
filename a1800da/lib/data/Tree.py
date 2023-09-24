@@ -10,7 +10,7 @@ from lib.log.Log import print_info
 class Tree():
     name: str; header: TreeHeader; elements_map: TreeMap; attributes_map: TreeMap; root: TreeNode; node_count: int
 
-    def __init__(self, name: str, bytes: bytearray):
+    def __init__(self, name: str, bytes: bytes):
         self.name = name.split(".")[0].title()
         self.print(len(bytes))
         reader = MemoryReader(bytes)
@@ -53,7 +53,6 @@ class Tree():
                 node = TreeNode(read.tell(), content_size, type, id, self.attributes_map.get_name(id), content, current, [])
                 current.children.append(node)
 
-                # read.remainder()
                 read.remainder(content_size)
 
             if type is ThreeNodeTypes.CLOSING:

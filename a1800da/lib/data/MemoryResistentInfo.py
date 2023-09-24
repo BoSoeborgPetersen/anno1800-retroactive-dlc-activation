@@ -19,4 +19,4 @@ class MemoryResistentInfo:
         self.print(offset)
         
     def print(self, offset: int):
-        print_info(f'      <memory_resistent_info pos="{offset}-{offset+self.get_size()}" pos_hex="{offset:x}-{(offset+self.get_size()):x}" compressed_size="{self.compressed_size}" uncompressed_size="{self.size}" />')
+        print_info(f'      <memory_resistent_info pos="{offset}-{offset+self.get_size()}" pos_hex="{offset:x}-{(offset+self.get_size()):x}" compressed_size="{self.compressed_size}" size="{self.size}" />')

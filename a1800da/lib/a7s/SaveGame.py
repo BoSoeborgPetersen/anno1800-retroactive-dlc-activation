@@ -27,7 +27,7 @@ class SaveGame(Rda):
         self.base_filename = self.filename.split(".")[0]
 
         with open(path, "rb") as f:
-            read = MemoryReader(bytearray(f.read()))
+            read = MemoryReader(f.read())
             print_info("--- Read Save Game ---")
             super().__init__(read)
             print_info("--- /Read Save Game ---")

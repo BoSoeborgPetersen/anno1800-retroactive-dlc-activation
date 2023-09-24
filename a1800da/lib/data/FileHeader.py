@@ -22,4 +22,4 @@ class FileHeader:
         self.print(offset)
 
     def print(self, offset):
-        print_info(f'      <header pos="{offset}-{offset+self.size}" pos_hex="{offset:x}-{(offset+self.size):x}" file_path="{self.get_name()}", data_offset="{self.data_offset}", compressed_size="{self.compressed_size}", uncompressed_size="{self.size}", time_stamp="{self.time}", unknown="{self.unknown}" />')
+        print_info(f'      <header pos="{offset}-{offset+self.get_size()}" pos_hex="{offset:x}-{(offset+self.get_size()):x}" name="{self.get_name()}", data_offset="{self.data_offset}", compressed_size="{self.compressed_size}", size="{self.size}", time="{self.time}", unknown="{self.unknown}" />')

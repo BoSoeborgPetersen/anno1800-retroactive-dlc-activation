@@ -1,6 +1,5 @@
 from io import BytesIO
 from typing import List
-from lib.log.Log import print_info
 from lib.log.Log import print_trace
 
 class MemoryWriter:
@@ -46,22 +45,10 @@ class MemoryWriter:
     def short_list(self, shorts: List[int]) -> int:
         return sum([self._number(short, 2) for short in shorts])
     
-    # def mod_8_remainder(self):
-    #     return (8 - len(self.buffer)) % 8
-    
-    def remainder_self(self) -> int:
-        # return (8 - len(self.buffer)) % 8
-        return self.bytes(bytes((8 - self.size) % 8))
-    
     def remainder(self, number: int) -> int:
         return self.bytes(bytes((8 - number) % 8))
     
-    def to_bytes(self) -> bytearray:
-        self.buffer.flush()
-        self.buffer.seek(0)
-        return bytearray(self.buffer.read())
-    
-    def to_b(self) -> bytes:
+    def to_bytes(self) -> bytes:
         self.buffer.flush()
         self.buffer.seek(0)
         return self.buffer.read()

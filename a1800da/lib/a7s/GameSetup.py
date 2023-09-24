@@ -6,7 +6,6 @@ from lib.log.Log import print_info
 
 class GameSetup():
     gamesetup: RdaFile
-    bytes: bytearray
     dlcs: List[DLC]
     dlc_count_ptr: int = 0
 
@@ -15,7 +14,6 @@ class GameSetup():
         print("--- Read GameSetup ---")
 
         self.gamesetup = gamesetup
-        self.bytes = gamesetup.file_data
         self._find_dlcs(gamesetup.file_tree.root)
 
         print("--- /Read GameSetup ---")

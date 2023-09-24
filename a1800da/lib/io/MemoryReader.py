@@ -6,7 +6,7 @@ from lib.log.Log import CURRENT_LOG_LEVEL
 class MemoryReader:
     buffer: BytesIO; size: int
 
-    def __init__(self, bytes: bytearray):
+    def __init__(self, bytes: bytes):
         self.buffer = BytesIO(bytes)
         self.size = len(bytes)
 
@@ -44,9 +44,4 @@ class MemoryReader:
         return [self._number(2) for _ in range(0, count)]
     
     def remainder(self, number: int):
-        # return (8 - len(self.buffer)) % 8
         return self.bytes((8 - number) % 8)
-    
-    # def remainder(self):
-    #     # return (8 - len(self.buffer)) % 8
-    #     return self.bytes((8 - self.size) % 8)

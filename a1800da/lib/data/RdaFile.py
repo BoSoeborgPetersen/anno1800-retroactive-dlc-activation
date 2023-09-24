@@ -15,40 +15,25 @@ class RdaFile:
         self.print()
         if header.flags is BlockFlags.COMPRESSED:
             read.seek(offset)
-            uncompressed_header_reader = MemoryReader(bytearray(zlib.decompress(read.bytes(header.compressed_size))))
+            uncompressed_header_reader = MemoryReader(zlib.decompress(read.bytes(header.compressed_size)))
             self.file_header = FileHeader(uncompressed_header_reader, offset)
         else:
             self.file_header = FileHeader(read, offset)
         read.seek(self.file_header.data_offset)
         self.compressed_file_data = read.bytes(self.file_header.compressed_size)
         self.file_data = zlib.decompress(self.compressed_file_data)
-        self.file_tree = Tree(self.file_header.get_name(), bytearray(self.file_data)) if self.file_header.get_name() != "data.a7s" else None
+        self.file_tree = Tree(self.file_header.get_name(), self.file_data) if self.file_header.get_name() != "data.a7s" else None
         self.print()
 
     def save_tree(self):
         if (self.file_header.get_name() != "data.a7s"):
-            # self.file_data.clear()
             self.file_data = self.file_tree.serialize()
             write = MemoryWriter()
-            compressed_bytes = zlib.compress(self.file_data, level=zlib.Z_BEST_COMPRESSION)
-            write.bytes(compressed_bytes)
-            print(f"write: \n\t{write.to_bytes()[19000:]}")
-            print(f"bytes_added: \n\t{bytearray(zlib.compress(self.file_data, level=zlib.Z_BEST_COMPRESSION))[19000:]}")
-
-            # remain_len = write.remainder_self()
-            write.remainder(len(compressed_bytes) + 12)
-            print(f"write: \n\t{write.to_bytes()[19000:]}")
-            # print(f"bytes_added: \n\t{bytes(remain_len)}")
-
+            write.bytes(zlib.compress(self.file_data, level=zlib.Z_BEST_COMPRESSION))
+            write.remainder(write.size + 12)
             write.bytes(bytes.fromhex("78da030000000001"))
-            print(f"write: \n\t{write.to_bytes()[19000:]}")
-            print(f"bytes_added: \n\t{bytes.fromhex("78da030000000001")}")
             write.int(len(self.file_data))
-            print(f"write: \n\t{write.to_bytes()[19000:]}")
-            print(f"bytes_added: \n\t{int.to_bytes(len(self.file_data), 4, "little")}")
-            self.compressed_file_data = write.to_b()
-            print(f"write: \n\t{write.to_bytes()[19000:]}")
-            print(f"bytes_added: Nothing")
+            self.compressed_file_data = write.to_bytes()
 
     def get_size(self) -> int:
         return len(self.compressed_file_data) + self.file_header.get_size()

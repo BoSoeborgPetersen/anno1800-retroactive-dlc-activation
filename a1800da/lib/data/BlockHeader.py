@@ -20,4 +20,4 @@ class BlockHeader:
         self.print(offset)
         
     def print(self, offset: int):
-        print_info(f'    <header pos="{offset}-{offset+32}" pos_hex="{offset:x}-{(offset+32):x}" flags="{self.flags}" number_of_files="{self.file_count}" compressed_size="{self.compressed_size}" uncompressed_size="{self.size}" next_header_offset="{self.next_offset}" />')
+        print_info(f'    <header pos="{offset}-{offset+self.get_size()}" pos_hex="{offset:x}-{(offset+self.get_size()):x}" flags="{self.flags}" file_count="{self.file_count}" compressed_size="{self.compressed_size}" size="{self.size}" next_offset="{self.next_offset}" />')

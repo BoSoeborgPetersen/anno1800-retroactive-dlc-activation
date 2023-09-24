@@ -17,15 +17,14 @@ class RdaBlock:
         self.files = [RdaFile(read, header_offset - self.header.compressed_size, self.header) for _ in range(0, self.header.file_count)]
         self.print(header_offset)
 
-    def block_header_location(self) -> int:
+    def files_size(self) -> int:
         return sum([file.get_size() for file in self.files])
     
     def get_size(self) -> int:
-        size = sum([file.get_size() for file in self.files])
+        size = self.files_size()
         if self.memory_resistent_info is not None:
             size += self.memory_resistent_info.get_size()
-        size += self.header.get_size()
-        return size
+        return size + self.header.get_size()
 
     def save(self, writer: MemoryWriter, offset: int) -> int:
         self.print()

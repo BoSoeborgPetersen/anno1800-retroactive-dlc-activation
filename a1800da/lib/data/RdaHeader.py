@@ -22,5 +22,5 @@ class RdaHeader:
         write.string(self.file_format), write.bytes(self.unknown), write.long(self.next_offset)
         self.print()
             
-    def print(self):
-        print_info(f'  <header pos="0-792" pos_hex="0-318" file_format="{self.file_format}" unknown="{self.get_unknown()}" next_offset="{self.next_offset}" />')
+    def print(self, offset: int = 0):
+        print_info(f'  <header pos="{offset}-{offset+self.get_size()}" pos_hex="{offset:x}-{(offset+self.get_size()):x}" file_format="{self.file_format}" unknown="{self.get_unknown()}" next_offset="{self.next_offset}" />')

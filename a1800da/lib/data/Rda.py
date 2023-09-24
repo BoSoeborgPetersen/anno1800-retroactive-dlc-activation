@@ -21,13 +21,13 @@ class Rda:
 
     def save(self, write: MemoryWriter):
         self.print()
-        self.rda_header.next_offset = self.rda_header.get_size() + self.blocks[0].block_header_location()
+        self.rda_header.next_offset = self.rda_header.get_size() + self.blocks[0].files_size()
         self.rda_header.save(write)
         size = self.rda_header.get_size()
         for i in range(0, len(self.blocks)):
             block = self.blocks[i]
             if (i < len(self.blocks) - 1):
-                block.header.next_offset = size + block.get_size() + self.blocks[i + 1].block_header_location()
+                block.header.next_offset = size + block.get_size() + self.blocks[i + 1].files_size()
             else:
                 block.header.next_offset = size + block.get_size()
             size += block.save(write, size)
