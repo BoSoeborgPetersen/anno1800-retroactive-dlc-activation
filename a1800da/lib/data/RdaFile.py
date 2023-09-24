@@ -8,7 +8,7 @@ from lib.data.Tree import Tree
 from lib.log.Log import print_info
 
 class RdaFile:
-    file_header: FileHeader; compressed_file_data: bytearray; file_data: bytearray; file_tree: Tree
+    file_header: FileHeader; compressed_file_data: bytes; file_data: bytes; file_tree: Tree
 
     def __init__(self, read: MemoryReader, offset: int, header: BlockHeader):
         self.file_header = None
@@ -21,26 +21,34 @@ class RdaFile:
             self.file_header = FileHeader(read, offset)
         read.seek(self.file_header.data_offset)
         self.compressed_file_data = read.bytes(self.file_header.compressed_size)
-        self.file_data = bytearray(zlib.decompress(self.compressed_file_data))
-        self.file_tree = Tree(self.file_header.get_name(), self.file_data) if self.file_header.get_name() != "data.a7s" else None
+        self.file_data = zlib.decompress(self.compressed_file_data)
+        self.file_tree = Tree(self.file_header.get_name(), bytearray(self.file_data)) if self.file_header.get_name() != "data.a7s" else None
         self.print()
 
     def save_tree(self):
         if (self.file_header.get_name() != "data.a7s"):
+            # self.file_data.clear()
             self.file_data = self.file_tree.serialize()
-            # write = MemoryWriter()
-            self.compressed_file_data = zlib.compress(self.file_data, level=zlib.Z_BEST_COMPRESSION)
-            # write.bytes(zlib.compress(self.file_data, level=zlib.Z_BEST_COMPRESSION))
+            write = MemoryWriter()
+            compressed_bytes = zlib.compress(self.file_data, level=zlib.Z_BEST_COMPRESSION)
+            write.bytes(compressed_bytes)
+            print(f"write: \n\t{write.to_bytes()[19000:]}")
+            print(f"bytes_added: \n\t{bytearray(zlib.compress(self.file_data, level=zlib.Z_BEST_COMPRESSION))[19000:]}")
 
-            remainder = (8 - (len(self.compressed_file_data) + 12)) % 8
-            self.compressed_file_data += bytes(remainder)
-            # write.remainder(len(self.compressed_file_data))
+            # remain_len = write.remainder_self()
+            write.remainder(len(compressed_bytes) + 12)
+            print(f"write: \n\t{write.to_bytes()[19000:]}")
+            # print(f"bytes_added: \n\t{bytes(remain_len)}")
 
-            self.compressed_file_data += bytes.fromhex("78da030000000001")
-            # write.bytes(bytes.fromhex("78da030000000001"))
-            self.compressed_file_data += int.to_bytes(len(self.file_data), 4, "little")
-            # write.int(len(self.file_data))
-            # self.compressed_file_data = write.to_bytes()
+            write.bytes(bytes.fromhex("78da030000000001"))
+            print(f"write: \n\t{write.to_bytes()[19000:]}")
+            print(f"bytes_added: \n\t{bytes.fromhex("78da030000000001")}")
+            write.int(len(self.file_data))
+            print(f"write: \n\t{write.to_bytes()[19000:]}")
+            print(f"bytes_added: \n\t{int.to_bytes(len(self.file_data), 4, "little")}")
+            self.compressed_file_data = write.to_b()
+            print(f"write: \n\t{write.to_bytes()[19000:]}")
+            print(f"bytes_added: Nothing")
 
     def get_size(self) -> int:
         return len(self.compressed_file_data) + self.file_header.get_size()
@@ -50,7 +58,6 @@ class RdaFile:
         write.seek(offset)
         size = write.bytes(self.compressed_file_data)
         self.file_header.data_offset = offset
-        # self.file_header.size = len(self.compressed_file_data)
         self.file_header.compressed_size = self.file_header.size = len(self.compressed_file_data)
         self.file_header.write(write, offset + size)
         self.print()

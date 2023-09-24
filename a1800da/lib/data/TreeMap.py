@@ -30,8 +30,6 @@ class TreeMap:
         
     def save(self, write: MemoryWriter):
         write.int(self.count); write.short_list(self.ids); write.string_list(self.names)
-        # write.bytes(bytes(write.mod_8_remainder(self.get_size())))
-        # write.bytes(bytes(write.mod_8_remainder()))
         write.remainder(self.get_size())
 
     def print(self, offset: int):

@@ -53,7 +53,6 @@ class Tree():
                 node = TreeNode(read.tell(), content_size, type, id, self.attributes_map.get_name(id), content, current, [])
                 current.children.append(node)
 
-                # read.bytes(self.mod_8_remainder(content_size))
                 # read.remainder()
                 read.remainder(content_size)
 
@@ -88,11 +87,9 @@ class Tree():
 
         elements_ptr = write.tell()
         self.elements_map.save(write)
-        # write.bytes(bytes(self.mod_8_remainder(self.elements_map.get_size())))
 
         attributes_ptr = write.tell()
         self.attributes_map.save(write)
-        # write.bytes(bytes(self.mod_8_remainder(self.attributes_map.get_size())))
         
         write.int(0)
 
@@ -112,16 +109,10 @@ class Tree():
             
         if current.type is ThreeNodeTypes.ATTRIBUTE:
             write.bytes(current.content)
-            # write.bytes(bytes(self.mod_8_remainder(current.content_size)))
             write.remainder(current.content_size)
 
         for child in current.children:
             self.serialize_tree(write, child, pos)
 
         if current.name != self.name and current.type is ThreeNodeTypes.OPENING:
-            # write.int(0)
-            # write.int(0)
             write.long(0)
-    
-    # def mod_8_remainder(self, number: int):
-    #     return (8 - number) % 8

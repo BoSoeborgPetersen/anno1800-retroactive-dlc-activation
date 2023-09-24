@@ -5,9 +5,11 @@ from lib.log.Log import print_trace
 
 class MemoryWriter:
     buffer: BytesIO
+    size: int
 
     def __init__(self):
         self.buffer = BytesIO()
+        self.size = 0
 
     def tell(self) -> int:
         return self.buffer.tell()
@@ -20,6 +22,7 @@ class MemoryWriter:
         to = pos + len(content)
         print_trace(f"write() ({len(content)} bytes) at position {pos} (0x{pos:x}) - {to} (0x{to:x})")
         self.buffer.write(content)
+        self.size += len(content)
         return len(content)
 
     def string(self, content: str, utf16_encoding: bool = False) -> int:
@@ -46,13 +49,19 @@ class MemoryWriter:
     # def mod_8_remainder(self):
     #     return (8 - len(self.buffer)) % 8
     
-    # def remainder(self):
-    #     # return (8 - len(self.buffer)) % 8
-    #     self.bytes(bytes((8 - len(self.buffer)) % 8))
+    def remainder_self(self) -> int:
+        # return (8 - len(self.buffer)) % 8
+        return self.bytes(bytes((8 - self.size) % 8))
     
-    def remainder(self, number: int):
-        self.bytes(bytes((8 - number) % 8))
+    def remainder(self, number: int) -> int:
+        return self.bytes(bytes((8 - number) % 8))
     
     def to_bytes(self) -> bytearray:
+        self.buffer.flush()
         self.buffer.seek(0)
         return bytearray(self.buffer.read())
+    
+    def to_b(self) -> bytes:
+        self.buffer.flush()
+        self.buffer.seek(0)
+        return self.buffer.read()

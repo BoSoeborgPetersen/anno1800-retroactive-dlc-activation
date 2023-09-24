@@ -32,7 +32,6 @@ class RdaBlock:
         size = 0
         for file in self.files:
             size += file.save(writer, offset + size)
-        # size = sum([file.save(writer, offset + size) for file in self.files])
         header_offset = offset+size
         self.header.save(writer, header_offset)
         size += self.header.get_size()
