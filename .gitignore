@@ -1,5 +1,5 @@
-gamesetup*
 *.a7s
+*.xml
 dist
 build
 **/__pycache__/**
