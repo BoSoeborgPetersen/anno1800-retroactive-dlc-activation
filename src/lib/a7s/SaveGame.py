@@ -2,7 +2,7 @@ import os
 from typing import List
 from lib.enums.RdaFileName import RdaFileName
 from lib.data.TreeNode import TreeNode
-from lib.data.RdaBlock import RdaBlock
+from lib.data.RdaFile import RdaFile
 from lib.data.Rda import Rda
 from lib.io.MemoryReader import MemoryReader
 from lib.io.MemoryWriter import MemoryWriter
@@ -32,10 +32,7 @@ class SaveGame(Rda):
             super().__init__(read)
             print_info("--- /Read Save Game ---")
 
-        self.files = []
-        for block in self.blocks:
-            for file in block.files:
-                self.files.append(file)
+        self.files = [file for block in self.blocks for file in block.files]
 
         self.meta = self.blocks[0].files[0]
         self.header = self.blocks[1].files[0]
@@ -43,6 +40,10 @@ class SaveGame(Rda):
         self.data = self.blocks[3].files[0]
 
         self.save_rda_files()
+
+    def get_file(self, name: RdaFileName) -> RdaFile:
+        # return next(self.files)
+        return next(filter(lambda x: x.file_header.name == name.value, self.files))
 
     def save_rda_files(self, suffix: str = ""):
         for file in self.files:

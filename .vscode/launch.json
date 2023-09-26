@@ -8,8 +8,7 @@
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
-            // "program": "v3/main.py",
-            "program": "a1800da/gui.py",
+            "program": "src/gui.py",
             "console": "integratedTerminal",
             "justMyCode": true
         }
